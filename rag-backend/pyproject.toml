@@ -38,6 +38,7 @@ dependencies = [
     "crawl4ai>=0.7.4",
     "redis>=5.0.0",
     "pytz>=2024.1",
+    "pgvector>=0.3.0",
 ]
 
 [tool.uv]

@@ -40,7 +40,7 @@ def create_rag_graph(collection_id: str) -> RAGGraph:
         rag_graph = RAGGraph(
             llm=chat_model,
             embedding_model=embeddings_model,
-            enable_checkpointer=False,
+            enable_checkpointer=os.getenv("LANGGRAPH_ENABLE_CHECKPOINT", "true").lower() in ("true", "1", "yes"),
             workspace=collection_id  # 使用collection_id作为workspace
         )
         

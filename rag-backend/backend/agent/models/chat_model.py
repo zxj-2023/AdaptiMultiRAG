@@ -3,10 +3,18 @@ from typing import Any, Optional, Union, cast
 
 from langchain.chat_models.base import (
     BaseChatModel,
-    _SUPPORTED_PROVIDERS,
-    _init_chat_model_helper,
     init_chat_model,
 )
+
+# LangChain 1.x 支持的 model_provider 列表（原 _SUPPORTED_PROVIDERS 已从公开 API 移除）
+_SUPPORTED_PROVIDERS = {
+    "openai", "anthropic", "azure_openai", "azure_ai",
+    "google_vertexai", "google_genai", "anthropic_bedrock", "bedrock",
+    "bedrock_converse", "cohere", "fireworks", "together", "mistralai",
+    "huggingface", "groq", "ollama", "google_anthropic_vertex",
+    "deepseek", "ibm", "nvidia", "xai", "openrouter", "perplexity",
+    "upstage", "baseten",
+}
 
 
 # 存储自定义注册的模型提供方配置
@@ -109,7 +117,7 @@ def _load_chat_model_helper(
             return chat_model(model=model, **kwargs)
 
     # 如果不是自定义注册的，交给 LangChain 原生加载逻辑
-    return _init_chat_model_helper(model, model_provider=model_provider, **kwargs)
+    return init_chat_model(model, model_provider=model_provider, **kwargs)
 
 
 def register_model_provider(

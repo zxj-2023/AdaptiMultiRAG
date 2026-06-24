@@ -25,12 +25,10 @@ __pycache__/
 .git/
 .gitignore
 
-# 文档
-CLAUDE.md
-README.md
+# 文档（rag-backend 有独立的 .dockerignore）
+# CLAUDE.md 和 README.md 不会被 COPY 进 rag-backend 镜像
 
-# 测试
-**/tests/
+# 测试（rag-backend 构建时保留测试代码）
 
 # RAG 临时数据
 **/rag/outputs/

@@ -8,13 +8,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用开发命令
 
+### Docker Compose 一键部署（推荐）
+
+```bash
+# 在项目根目录 (AdaptiMultiRAG/) 执行
+
+# 环境配置
+cp .env.docker.example .env              # 复制 Docker 环境变量模板
+# 编辑 .env 文件,配置 DASHSCOPE_API_KEY 和数据库密码
+
+# 启动所有后端服务
+docker compose up -d                     # 一键启动全部服务
+docker compose ps                        # 查看所有容器状态
+docker compose logs -f app               # 查看应用日志
+docker compose down                      # 停止所有服务
+docker compose down -v                   # 停止并删除所有数据卷（⚠️ 不可恢复）
+
+# 重建应用镜像
+docker compose build app
+docker compose up -d --force-recreate app
+
+# 服务地址
+# - API服务: http://0.0.0.0:8000
+# - API文档: http://0.0.0.0:8000/docs
+# - MySQL: 端口 3306
+# - PostgreSQL: 端口 5432
+# - Milvus: 端口 19530
+# - MinIO控制台: http://localhost:9001 (minioadmin/minioadmin)
+# - Neo4j Browser: http://localhost:7474
+# - Redis: 端口 6379
+```
+
+### 本地开发（非 Docker）
+
 ```bash
 # 环境配置
 cp backend/.env.example backend/.env    # 复制环境变量模板
 # 编辑 backend/.env 文件,配置必需的环境变量
-
-# 数据库初始化（首次运行必需）
-python backend/init_db.py               # 创建MySQL表结构
 
 # 依赖管理
 uv sync                    # 安装依赖
@@ -24,12 +54,6 @@ uv remove <package>       # 移除依赖
 # 启动服务
 python main.py            # 启动FastAPI服务（端口8000）
 
-# Docker服务管理（必须先启动Milvus）
-cd backend/rag/storage && docker-compose up -d      # 启动Milvus向量数据库
-cd backend/rag/storage && docker-compose down       # 停止Milvus
-cd backend/rag/storage && docker-compose ps         # 查看服务状态
-cd backend/rag/storage && docker-compose logs milvus-standalone  # 查看Milvus日志
-
 # LangGraph相关
 langgraph dev             # 启动LangGraph Studio开发环境
 langgraph build           # 构建LangGraph应用
@@ -38,12 +62,6 @@ langgraph build           # 构建LangGraph应用
 uv run pytest backend/tests/              # 运行所有测试
 uv run pytest -v                          # 详细测试输出
 uv run pytest backend/tests/test_raggraph_simple.py -v    # 运行特定测试文件
-
-# 服务地址
-# - API服务: http://0.0.0.0:8000
-# - API文档: http://0.0.0.0:8000/docs
-# - Milvus: 端口19530
-# - MinIO控制台: http://localhost:9001 (minioadmin/minioadmin)
 ```
 
 ## 项目架构
@@ -119,8 +137,9 @@ rag-backend/
   - expand_subquestions → classify_question_type → (vector_db_retrieval | graph_db_retrieval)
   - 检索节点 → generate_answer → END
 - **双模式运行**:
-  - FastAPI模式: 启用PostgreSQL checkpoint持久化（`enable_checkpointer=True`）
-  - Studio模式: 禁用checkpoint（`enable_checkpointer=False`）
+  - 通过 `LANGGRAPH_ENABLE_CHECKPOINT` 环境变量控制（默认 `true`）
+  - FastAPI模式: 启用PostgreSQL checkpoint持久化
+  - Studio模式: 禁用checkpoint（`langgraph dev` 自动禁用）
 - **记忆系统**: 集成langmem库，使用PostgreSQL Store存储长期记忆
 - **模型管理**: 支持动态注册模型提供商（qwen、deepseek等）
 
@@ -236,8 +255,14 @@ cp backend/.env.example backend/.env
 - `API_PORT`: API服务端口（默认8000）
 
 **LangGraph配置**
-- `LANGGRAPH_ENABLE_CHECKPOINT`: 是否启用Checkpoint（生产环境建议true）
+- `LANGGRAPH_ENABLE_CHECKPOINT`: 是否启用Checkpoint（生产环境建议true，默认true）
 - `LANGGRAPH_STUDIO_MODE`: Studio调试模式（仅开发环境使用）
+
+**图数据库 - Neo4j**
+- `NEO4J_URI`: Neo4j Bolt 连接地址（LightRAG Neo4JStorage 使用）
+- `NEO4J_USERNAME`: Neo4j 用户名
+- `NEO4J_PASSWORD`: Neo4j 密码
+- `LIGHTRAG_GRAPH_STORAGE`: 图存储后端（默认 `Neo4JStorage`）
 
 **文档处理配置**
 - `CHUNK_SIZE`: 文档切块大小（默认1000）
@@ -275,7 +300,9 @@ uv包管理配置：
 
 ### MySQL数据库初始化
 
-**首次运行必须执行初始化脚本**，创建业务数据库表结构:
+**Docker Compose 部署无需手动初始化** — FastAPI 启动时自动执行 `Base.metadata.create_all()`（幂等操作，已存在的表不会重复创建）。
+
+**本地开发方式**（如不使用 Docker Compose）:
 
 ```bash
 # 1. 创建数据库（如果未创建）
@@ -283,11 +310,12 @@ mysql -u root -p
 CREATE DATABASE rag_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 exit
 
-# 2. 运行初始化脚本
-python backend/init_db.py
+# 2. 启动应用时自动建表（main.py lifespan）
+# 或手动调用:
+python -c "from backend.config.database import DatabaseFactory; DatabaseFactory.get_base().metadata.create_all(DatabaseFactory.get_engine())"
 ```
 
-**初始化脚本会创建以下表**:
+**创建的表**:
 - `users`: 用户表（id, email, hashed_password, created_at, updated_at）
 - `conversations`: 会话表（id, user_id, title, created_at, updated_at）
 - `knowledge_libraries`: 知识库表（id, user_id, name, description, collection_id, created_at, updated_at, is_deleted）
@@ -304,12 +332,20 @@ python backend/init_db.py
 
 ## 开发注意事项
 
-### 启动顺序（重要）
+### 启动顺序
+
+**Docker Compose 一键部署（推荐）**: 在项目根目录执行
+```bash
+cp .env.docker.example .env  # 首次配置
+docker compose up -d          # 自动编排所有服务启动顺序
+```
+
+**本地开发**: 手动启动
 1. **配置环境变量**: `cp backend/.env.example backend/.env` 并编辑配置
-2. **初始化数据库**: `python backend/init_db.py`（首次运行）
+2. **启动 MySQL/PostgreSQL/Redis/Neo4j**（自行安装）
 3. **启动Milvus**: `cd backend/rag/storage && docker-compose up -d`
 4. **检查服务状态**: `docker-compose ps` 确认Milvus启动成功
-5. **启动应用**: `python main.py`
+5. **启动应用**: `python main.py`（MySQL 表结构自动创建）
 
 ### RAGGraph动态创建机制
 
@@ -344,17 +380,15 @@ rag_graph = get_rag_graph_for_collection(collection_id="kb12_1760260169325")
 #### 模型配置
 - **大模型**: 通义千问（qwen3-max-preview）
 - **向量模型**: 阿里云text-embedding-v4（1536维）
-- **Checkpoint**: FastAPI模式启用，Studio模式禁用
+- **Checkpoint**: 通过 `LANGGRAPH_ENABLE_CHECKPOINT` 环境变量控制（默认 `true`）
 
 ### LangGraph双运行模式
-- **FastAPI模式**: 生产环境，启用checkpoint和memory store
+- **FastAPI模式**: 生产环境，启用checkpoint和memory store（由 `LANGGRAPH_ENABLE_CHECKPOINT` 控制）
   ```python
-  rag_graph = RAGGraph(llm=llm, embedding_model=embeddings, enable_checkpointer=True)
+  # agent.py 中通过环境变量控制
+  enable_checkpointer=os.getenv("LANGGRAPH_ENABLE_CHECKPOINT", "true").lower() in ("true", "1", "yes")
   ```
-- **Studio模式**: 开发调试，禁用checkpoint
-  ```python
-  rag_graph = RAGGraph(llm=llm, embedding_model=embeddings, enable_checkpointer=False)
-  ```
+- **Studio模式**: 开发调试，禁用checkpoint（`langgraph dev` 自动禁用）
 
 ### 数据库会话管理
 - **创建会话**: `DatabaseFactory.create_session()`

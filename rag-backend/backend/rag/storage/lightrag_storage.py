@@ -88,6 +88,8 @@ class LightRAGStorage:
 
         # 存储配置 - 统一使用字符串方式，让LightRAG自动处理
         # 图存储配置
+        # Neo4JStorage requires NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD env vars
+        # These are configured in the project root .env file
         graph_storage = os.getenv("LIGHTRAG_GRAPH_STORAGE", "Neo4JStorage")
 
         # KV存储配置

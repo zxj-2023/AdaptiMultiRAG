@@ -14,3 +14,5 @@ dump.rdb
 
 # RAG storage volumes
 backend/rag/storage/volumes/
+
+.env

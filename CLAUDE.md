@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 回答规矩
+
+- 思考推理过程和回答一律使用简体中文的形式呈现
+
+
+
 ## 项目概述
 
 这是一个全栈RAG(检索增强生成)系统,包含前端和后端两个独立项目:
@@ -13,7 +19,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 快速开始
 
-### 环境配置
+### 推荐方式: Docker Compose 一键部署 (无需本地安装数据库)
+
+```bash
+# 1. 配置环境变量
+cp .env.docker.example .env
+# 编辑 .env 文件,配置 DASHSCOPE_API_KEY 和数据库密码
+
+# 2. 一键启动所有后端服务
+docker compose up -d
+# 自动启动 MySQL, PostgreSQL, Redis, Milvus, Neo4j, FastAPI
+
+# 3. 检查服务状态
+docker compose ps
+curl http://localhost:8000/health
+
+# 4. 前端启动 (本地开发)
+cd rag-frontend
+npm install && npm run dev
+```
+
+### 本地开发方式 (非 Docker)
 
 **后端环境变量配置** (必需):
 ```bash
@@ -26,25 +52,22 @@ cp .env.example .env
 # 详细配置说明见 .env.example 文件注释
 ```
 
-### 数据库初始化
+### 数据库初始化 (本地开发)
 
-**MySQL数据库初始化** (首次运行必需):
+**MySQL数据库初始化** (首次运行必需 - 仅本地开发):
 ```bash
-# 1. 创建MySQL数据库
+# Docker Compose 方式无需手动初始化，FastAPI 启动时自动建表
+# 本地开发方式:
 mysql -u root -p
 CREATE DATABASE rag_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 exit
-
-# 2. 运行初始化脚本创建所有表
-cd rag-backend
-python backend/init_db.py
 ```
 
 **PostgreSQL数据库**:
 - LangGraph会自动创建checkpoint和store相关表
 - 确保POSTGRES_*环境变量配置正确
 
-### 后端启动
+### 后端启动 (本地开发)
 ```bash
 cd rag-backend
 
@@ -90,9 +113,12 @@ npm run dev
 - 智能体: LangGraph + LangChain + langmem
 - 数据库: MySQL (业务) + PostgreSQL (图状态)
 - 向量数据库: Milvus + MinIO + etcd
+- 图数据库: Neo4j (LightRAG 知识图谱)
+- 缓存: Redis (爬虫状态)
 - 文档处理: PyPDF2, python-docx, mineru (OCR)
 - 模型: 通义千问、DeepSeek、阿里云DashScope
 - 包管理: uv (Python >= 3.12)
+- 部署: Docker Compose (一键启动所有服务)
 
 **前端 (rag-frontend/)**
 - 框架: Vue 3 (Composition API)
@@ -114,7 +140,22 @@ npm run dev
 
 ## 服务依赖
 
+**Docker Compose 自动化编排**（推荐）:
+```bash
+docker compose up -d  # 一键启动，自动管理启动顺序
+```
 启动顺序:
+1. **etcd**: Milvus 元数据存储
+2. **MinIO**: Milvus 对象存储
+3. **Milvus 向量数据库**: 向量检索
+4. **MySQL 数据库**: 业务数据存储
+5. **PostgreSQL 数据库**: LangGraph 状态存储
+6. **Redis**: 缓存
+7. **Neo4j 图数据库**: LightRAG 知识图谱存储
+8. **FastAPI 后端**: API 服务
+9. **Vite 前端**: 开发服务器（本地运行）
+
+**本地开发**（手动启动）:
 1. **Milvus向量数据库** (必须): Docker Compose部署
 2. **MySQL数据库** (必须): 业务数据存储
 3. **PostgreSQL数据库** (必须): LangGraph状态存储
@@ -124,8 +165,13 @@ npm run dev
 默认端口:
 - 前端: 5173
 - 后端API: 8000
+- MySQL: 3306
+- PostgreSQL: 5432
 - Milvus: 19530
 - MinIO控制台: 9001
+- Redis: 6379
+- Neo4j Browser: 7474
+- Neo4j Bolt: 7687
 
 ## 测试
 
@@ -158,16 +204,25 @@ npm run preview                           # 预览构建结果
 
 ## 开发注意事项
 
-1. **环境变量配置**: 后端需要配置 `rag-backend/backend/.env`,使用`.env.example`作为模板,必须配置DASHSCOPE_API_KEY
-2. **数据库初始化**: 首次运行需要执行`python backend/init_db.py`创建MySQL表结构
-3. **Milvus必须先启动**: 后端服务依赖Milvus,启动前确保Docker Compose已启动
-4. **双数据库配置**: 后端同时使用MySQL和PostgreSQL,需要正确配置两个数据库
+1. **环境变量配置**: Docker 部署使用根目录 `.env`（模板: `.env.docker.example`），本地开发使用 `rag-backend/backend/.env`
+2. **数据库初始化**: Docker 部署无需手动初始化，FastAPI 启动时自动建表（幂等）
+3. **Docker Compose 一键启动**: `docker compose up -d` 自动管理所有服务启动顺序和健康检查
+4. **双数据库配置**: 后端同时使用MySQL和PostgreSQL，Docker 中通过 `depends_on` 保证启动顺序
 5. **API代理配置**: 前端开发时通过Vite代理转发请求到后端8000端口,需要配置所有API路径(不仅仅是`/api`)
 6. **认证机制**: 前端使用localStorage存储token,后端自动验证JWT
-7. **LangGraph双模式**: FastAPI模式启用checkpoint,Studio模式禁用checkpoint
+7. **LangGraph双模式**: 通过 `LANGGRAPH_ENABLE_CHECKPOINT` 环境变量控制checkpoint开关（默认true）
 8. **Collection ID生成**: 创建知识库时自动生成,用于多知识库隔离
+9. **Neo4j 图数据库**: LightRAG 知识图谱存储，通过 `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` 配置
 
 ## 常见问题
+
+### Docker Compose 启动失败
+**检查清单**:
+- `.env` 文件是否存在且配置正确: `ls -la .env`
+- Docker 服务是否运行: `docker ps`
+- 端口是否被占用: `netstat -an | grep -E "3306|5432|6379|7474|7687|8000|9001|19530"`
+- 查看服务日志: `docker compose logs <service_name>`
+- 重建应用镜像: `docker compose build app && docker compose up -d`
 
 ### 前端API请求404
 **原因**: Vite代理配置不完整,仅配置了`/api`路径
@@ -176,15 +231,21 @@ npm run preview                           # 预览构建结果
 
 ### 数据库连接失败
 **检查清单**:
-- MySQL和PostgreSQL服务是否已启动
-- `.env`文件中的数据库连接配置是否正确
+- Docker Compose 是否所有服务都 healthy: `docker compose ps`
+- `.env`文件中的数据库 host 是否为 Docker 服务名（如 `mysql`, `postgres` 而非 `localhost`）
 - 数据库用户是否有足够的权限
-- 是否已运行`init_db.py`初始化MySQL表结构
 
 ### Milvus连接失败
 **检查清单**:
-- 确认Docker Compose已启动: `cd rag-backend/backend/rag/storage && docker-compose ps`
-- 检查Milvus端口19530是否可访问
-- 查看Milvus容器日志: `docker-compose logs milvus-standalone`
+- Docker Compose: `docker compose ps milvus` 确认状态为 healthy
+- Milvus 依赖的 etcd/minio 是否正常: `docker compose ps etcd minio`
+- 查看 Milvus 日志: `docker compose logs milvus`
+
+### Neo4j 连接失败
+**检查清单**:
+- `.env` 中 `NEO4J_AUTH` 格式是否为 `username/password`
+- `NEO4J_URI` 是否为 `bolt://neo4j:7687`
+- `LIGHTRAG_GRAPH_STORAGE` 是否设置为 `Neo4JStorage`
+- Neo4j 容器日志: `docker compose logs neo4j`
 
 详细的开发指南、架构设计和最佳实践请参考各子项目的CLAUDE.md文档。

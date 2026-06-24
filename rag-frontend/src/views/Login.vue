@@ -32,8 +32,8 @@
               <!-- 表单 -->
               <form @submit.prevent="handleSubmit" class="space-y-6">
                 <!-- 用户名 (注册时) -->
-                <!-- 注册功能已禁用 -->
-                <!-- <div v-if="!isLogin" class="space-y-2">
+                <!-- 注册功能-->
+                <div v-if="!isLogin" class="space-y-2">
                   <label for="username" class="block text-sm font-medium text-gray-700">
                     用户名
                   </label>
@@ -45,7 +45,7 @@
                     class="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                     placeholder="请输入用户名"
                   />
-                </div> -->
+                </div>
 
                 <!-- 邮箱 -->
                 <div class="space-y-2">
@@ -104,20 +104,20 @@
               </form>
 
               <!-- 切换模式 -->
-              <!-- 注册功能已禁用，隐藏切换按钮 -->
-              <!-- <div class="mt-8 text-center">
+              <!-- 注册功能，隐藏切换按钮 -->
+              <div class="mt-8 text-center">
                 <p class="text-sm text-gray-600">
                   {{ isLogin ? '还没有账户?' : '已有账户?' }}
                   <button @click="toggleMode" class="text-gray-900 hover:text-gray-700 font-medium ml-1">
                     {{ isLogin ? '注册' : '登录' }}
                   </button>
                 </p>
-              </div> -->
-              <div class="mt-8 text-center">
+              </div>
+              <!-- <div class="mt-8 text-center">
                 <p class="text-sm text-gray-500">
                   注册功能已禁用，如需账户请联系管理员
                 </p>
-              </div>
+              </div> -->
 
               <!-- 分隔线 -->
               <div class="mt-10 pt-8 border-t border-gray-100">
@@ -248,10 +248,10 @@ const handleSubmit = async () => {
       result = await authStore.login(form.value.email, form.value.password)
     } else {
       // 注册时传入用户名、密码和邮箱
-      // 注册功能已禁用
-      // result = await authStore.register(form.value.email, form.value.password, form.value.username)
-      message.error('注册功能已禁用，请联系管理员')
-      return
+      // 注册功能
+      result = await authStore.register(form.value.email, form.value.password, form.value.username)
+      // message.error('注册功能已禁用，请联系管理员')
+      return result
     }
 
     if (result.success) {

@@ -19,10 +19,9 @@ async def login(login_request: LoginRequest):
 
 @router.post("/register", response_model=Response)
 async def register(register_request: RegisterRequest):
-    """用户注册 - 已禁用"""
-    # 原注册功能已禁用
-    # return await auth.register(register_request)
-    return Response.error("注册功能已禁用，请联系管理员")
+    """用户注册"""
+    return await auth.register(register_request)
+    # return Response.error("注册功能已禁用，请联系管理员")
 
 
 @router.get("/me", response_model=Response)

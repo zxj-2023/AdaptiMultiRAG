@@ -1,9 +1,8 @@
 /**
  * 认证相关API接口
  * 对接后端 /workspace/rag-zxj/rag-demo/backend/api/auth.py
- */
-
-import { httpClient, setAuthToken, getAuthToken } from './config.js'
+ *
+/
 
 /**
  * 用户登录
@@ -11,6 +10,7 @@ import { httpClient, setAuthToken, getAuthToken } from './config.js'
  * @param {string} password - 密码
  * @returns {Promise<Object>} 登录响应
  */
+import { httpClient, setAuthToken, getAuthToken } from './config.js'
 export async function login(email, password) {
   try {
     const response = await httpClient.post('/api/auth/login', {

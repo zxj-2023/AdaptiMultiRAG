@@ -47,9 +47,11 @@ AdaptiMultiRAG 是一个企业级的自适应多RAG智能体系统,具备以下�
 - **知识图谱**: LightRAG + Neo4j (图检索和关系查询)
 - **业务数据库**: MySQL 8.0+ (用户、会话、文档等)
 - **图状态存储**: PostgreSQL 14+ (LangGraph checkpoint持久化)
+- **缓存**: Redis 7 (爬虫状态缓存)
 - **AI模型**: 阿里云通义千问、DeepSeek (DashScope API)
 - **文档处理**: PyPDF2, python-docx, mineru (OCR识别准确率>95%)
 - **包管理**: uv (Python >= 3.12)
+- **部署**: Docker Compose (一键启动所有后端服务)
 
 ### 前端技术栈
 
@@ -84,102 +86,62 @@ AdaptiMultiRAG 专为以下场景设计:
 - ❓ **FAQ智能问答**: 自动回答常见技术问题
 - 🏢 **知识沉淀**: 建立企业技术知识库,支持知识传承
 
-## 🚀 快速开始
+## 🚀 快速开始 (Docker Compose)
 
 ### 环境要求
 
-- **Python**: >= 3.12
-- **Node.js**: >= 18.x
-- **Docker**: 用于运行 Milvus 向量数据库
-- **MySQL**: 8.0+
-- **PostgreSQL**: 14+
+- **Docker**: >= 24.x
+- **Docker Compose**: >= 2.x
+- **Node.js**: >= 18.x (仅前端开发需要)
+- **无需本地安装** Python、MySQL、PostgreSQL、Redis、Neo4j、Milvus
 
-### 1. 克隆项目
+### 1. 克隆项目并配置环境变量
 
 ```bash
 git clone https://github.com/zxj-2023/AdaptiMultiRAG.git
 cd AdaptiMultiRAG
+cp .env.docker.example .env
 ```
 
-### 2. 后端配置与启动
-
-#### 2.1 环境变量配置
-
-```bash
-cd rag-backend/backend
-cp .env.example .env
-```
-
-编辑 `.env` 文件,配置以下必需项:
+编辑 `.env` 文件,填写必需配置:
 
 ```env
-# 阿里云通义千问 API (必须)
-DASHSCOPE_API_KEY=your_dashscope_api_key_here
+# 阿里云 DashScope API 密钥 (必须)
+DASHSCOPE_API_KEY=sk-your-dashscope-api-key
 
-# MySQL 数据库
-DB_URL=mysql+pymysql://username:password@host:3306/dbname
+# 数据库密码 (修改默认值)
+MYSQL_ROOT_PASSWORD=your_mysql_password
+POSTGRES_PASSWORD=your_postgres_password
+NEO4J_AUTH=neo4j/your_neo4j_password
+REDIS_PASSWORD=your_redis_password
 
-# PostgreSQL (LangGraph checkpoint)
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DATABASE=pgrag
-POSTGRES_USER=pgrag
-POSTGRES_PASSWORD=your_password
-
-# JWT 密钥
+# JWT 密钥 (使用强随机字符串)
 JWT_SECRET_KEY=your_jwt_secret_key_here
-
-# 其他配置见 .env.example
 ```
 
-⚠️ **重要**: 请勿将 `.env` 文件提交到 Git!
+> ⚠️ **重要**: 请勿将 `.env` 文件提交到 Git! 所有 host 地址已预设为 Docker 服务名,无需修改。
 
-#### 2.2 数据库初始化
-
-**MySQL 数据库**:
+### 2. 一键启动所有后端服务
 
 ```bash
-# 1. 创建 MySQL 数据库
-mysql -u root -p
-CREATE DATABASE rag_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-exit
-
-# 2. 运行初始化脚本
-cd rag-backend
-python backend/init_db.py
+docker compose up -d
 ```
-
-**PostgreSQL**: LangGraph 会自动创建所需的表。
-
-#### 2.3 启动 Milvus 向量数据库
 
 ```bash
-cd rag-backend/backend/rag/storage
-docker-compose up -d
+docker compose up -d --build
 ```
 
-验证 Milvus 已启动:
+启动顺序自动管理（etcd → MinIO → Milvus → MySQL/PostgreSQL/Redis/Neo4j → FastAPI），
+等待所有依赖就绪后 API 服务自动启动。
+
+### 3. 检查服务状态
 
 ```bash
-docker-compose ps
+docker compose ps                    # 查看所有容器状态
+curl http://localhost:8000/health    # 健康检查
 ```
 
-#### 2.4 安装依赖并启动后端
-
-```bash
-cd rag-backend
-uv sync  # 或 pip install -r requirements.txt
-python main.py
-```
-
-**后端服务地址**:
-
-- API 服务: <http://0.0.0.0:8000>
-- API 文档: <http://0.0.0.0:8000/docs>
-- Milvus: 端口 19530
-- MinIO 控制台: <http://localhost:9001> (minioadmin/minioadmin)
-
-### 3. 前端启动
+### 4. 前端启动（独立开发）
 
 ```bash
 cd rag-frontend
@@ -187,7 +149,40 @@ npm install
 npm run dev
 ```
 
-**前端访问地址**: <http://localhost:5173>
+### 5. 服务端口一览
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| FastAPI 后端 | 8000 | API 服务 + Swagger 文档 |
+| MySQL | 3306 | 业务数据库 |
+| PostgreSQL | 5432 | LangGraph 状态持久化 |
+| Milvus | 19530 | 向量数据库 |
+| MinIO 控制台 | 9001 | 对象存储管理 (minioadmin/minioadmin) |
+| Neo4j Browser | 7474 | 图数据库管理界面 |
+| Neo4j Bolt | 7687 | 图数据库连接 |
+| Redis | 6379 | 缓存 |
+
+**完整访问地址**:
+
+- API 服务: <http://localhost:8000>
+- API 文档: <http://localhost:8000/docs>
+- 前端开发: <http://localhost:5173>
+- MinIO 控制台: <http://localhost:9001>
+- Neo4j Browser: <http://localhost:7474>
+
+### 6. 停止服务
+
+```bash
+docker compose down                  # 停止并删除容器（保留数据卷）
+docker compose down -v               # 停止并删除所有数据（⚠️ 不可恢复）
+```
+
+### 本地开发（非 Docker）
+
+如需本地开发环境，参见各子项目的 CLAUDE.md 文档:
+
+- 后端开发: [rag-backend/CLAUDE.md](rag-backend/CLAUDE.md)
+- 前端开发: [rag-frontend/CLAUDE.md](rag-frontend/CLAUDE.md)
 
 ## 📖 核心功能
 

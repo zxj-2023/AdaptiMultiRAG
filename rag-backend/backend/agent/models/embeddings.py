@@ -1,7 +1,14 @@
 import os
 from typing import Any, Optional, Union
 
-from langchain.embeddings.base import Embeddings, _SUPPORTED_PROVIDERS, init_embeddings
+from langchain.embeddings import Embeddings, init_embeddings
+
+# LangChain 1.x 支持的 embeddings provider 列表（原 _EMBEDDINGS_SUPPORTED_PROVIDERS 已从公开 API 移除）
+_EMBEDDINGS_EMBEDDINGS_SUPPORTED_PROVIDERS = {
+    "openai", "ollama", "huggingface", "cohere", "mistralai",
+    "google_vertexai", "google_genai", "bedrock", "fireworks",
+    "together", "nomic", "voyageai", "jina", "deepseek",
+}
 from langchain_core.runnables import Runnable
 
 
@@ -60,9 +67,9 @@ def register_embeddings_provider(
             )
 
         # 检查是否为 LangChain 支持的提供方
-        if embeddings_model not in _SUPPORTED_PROVIDERS:
+        if embeddings_model not in _EMBEDDINGS_SUPPORTED_PROVIDERS:
             raise ValueError(
-                f"embeddings_model 为字符串时，仅支持以下提供方: {_SUPPORTED_PROVIDERS}"
+                f"embeddings_model 为字符串时，仅支持以下提供方: {_EMBEDDINGS_SUPPORTED_PROVIDERS}"
             )
 
         # 注册到全局字典中
